@@ -1,0 +1,3 @@
+[console_scripts]
+build-daily-series = demand_forecast.data.daily_series:main
+generate-synthetic-data = demand_forecast.data.synthetic:main

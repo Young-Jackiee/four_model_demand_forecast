@@ -1,0 +1,11 @@
+{
+  "history_start": "2025-01-01",
+  "train_end": "2026-06-30",
+  "test_start": "2026-07-01",
+  "actual_end": "2026-08-21",
+  "production_train_end": "2026-08-21",
+  "forecast_start": "2026-08-22",
+  "forecast_end": "2026-10-10",
+  "random_seed": 20260831,
+  "skus_per_scenario": 2
+}

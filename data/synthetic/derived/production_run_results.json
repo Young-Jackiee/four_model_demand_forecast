@@ -1,0 +1,137 @@
+{
+  "schema_version": "v1",
+  "runs": [
+    {
+      "sku": "SIM-ANNUAL-01",
+      "status": "succeeded",
+      "selected_model": "direct10",
+      "deployed_model": "direct10",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:19:42.740284+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": null
+    },
+    {
+      "sku": "SIM-ANNUAL-02",
+      "status": "succeeded",
+      "selected_model": "direct10",
+      "deployed_model": "direct10",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:19:48.742034+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": "SIM-ANNUAL-02__direct10__20260821__20260901T054202770071Z"
+    },
+    {
+      "sku": "SIM-INTERMITTENT-01",
+      "status": "succeeded",
+      "selected_model": "tsb",
+      "deployed_model": "tsb",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:19:54.021981+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": "SIM-INTERMITTENT-01__tsb__20260821__20260901T054206813565Z"
+    },
+    {
+      "sku": "SIM-INTERMITTENT-02",
+      "status": "succeeded",
+      "selected_model": "hurdle",
+      "deployed_model": "hurdle",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:19:54.243262+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": "SIM-INTERMITTENT-02__hurdle__20260821__20260901T054206908651Z"
+    },
+    {
+      "sku": "SIM-NEW_LAUNCH-01",
+      "status": "succeeded",
+      "selected_model": "tsb",
+      "deployed_model": "tsb",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:20:08.206618+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": "SIM-NEW_LAUNCH-01__tsb__20260821__20260901T054216266847Z"
+    },
+    {
+      "sku": "SIM-NEW_LAUNCH-02",
+      "status": "succeeded",
+      "selected_model": "five_period",
+      "deployed_model": "five_period",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:20:08.324161+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": null
+    },
+    {
+      "sku": "SIM-OBSERVATION_GAP-01",
+      "status": "no_selected_model",
+      "selected_model": null,
+      "deployed_model": null,
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:20:10.538427+00:00",
+      "reason_code": "selection_not_available",
+      "reason_detail": "unselectable_baseline_unavailable",
+      "previous_active_artifact_id": null
+    },
+    {
+      "sku": "SIM-OBSERVATION_GAP-02",
+      "status": "no_selected_model",
+      "selected_model": null,
+      "deployed_model": null,
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:20:10.540421+00:00",
+      "reason_code": "selection_not_available",
+      "reason_detail": "unselectable_baseline_unavailable",
+      "previous_active_artifact_id": null
+    },
+    {
+      "sku": "SIM-STABLE-01",
+      "status": "succeeded",
+      "selected_model": "five_period",
+      "deployed_model": "five_period",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:20:10.541931+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": "SIM-STABLE-01__five_period__20260821__20260901T054218355513Z"
+    },
+    {
+      "sku": "SIM-STABLE-02",
+      "status": "succeeded",
+      "selected_model": "five_period",
+      "deployed_model": "five_period",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:20:14.715097+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": "SIM-STABLE-02__five_period__20260821__20260901T054221452107Z"
+    },
+    {
+      "sku": "SIM-WEEKLY-01",
+      "status": "succeeded",
+      "selected_model": "five_period",
+      "deployed_model": "five_period",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:20:19.190608+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": "SIM-WEEKLY-01__five_period__20260821__20260901T054225099258Z"
+    },
+    {
+      "sku": "SIM-WEEKLY-02",
+      "status": "succeeded",
+      "selected_model": "hurdle",
+      "deployed_model": "hurdle",
+      "production_train_end": "2026-08-21",
+      "generated_at": "2026-09-01T06:20:22.582806+00:00",
+      "reason_code": null,
+      "reason_detail": null,
+      "previous_active_artifact_id": "SIM-WEEKLY-02__hurdle__20260821__20260901T054227409035Z"
+    }
+  ]
+}
