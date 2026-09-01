@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from demand_forecast.backtesting.contracts import BacktestSplit, DailyForecast, ModelUnavailableError
+from demand_forecast.backtesting.contracts import BacktestSplit, ModelUnavailableError, make_daily_forecast
 from demand_forecast.backtesting.adapters import _to_quantity_forecast_history
 from demand_forecast.model_selection import ModelSelectionAudit, SelectionResult
 from demand_forecast.production import ProductionPipeline, ProductionPublisher, ProductionTrainer
@@ -82,7 +82,7 @@ class FakeAdapter:
     def serialize(self, fitted: FakeFitted) -> dict[str, object]:
         if self.mode == "serialize_error":
             raise RuntimeError("fixture_serialize_error")
-        return {"model_name": "tsb", "implementation_version": "fixture", "trained_through": fitted.trained_through}
+        return {"model_name": "tsb", "model_version": "fixture", "trained_through": fitted.trained_through}
 
     def forecast(self, fitted: FakeFitted, train_series: pd.DataFrame, dates: pd.DatetimeIndex):
         if self.mode == "forecast_error":
@@ -90,7 +90,7 @@ class FakeAdapter:
         actual_dates = dates[:-1] if self.mode == "short" else dates
         if self.mode == "wrong_date":
             actual_dates = pd.date_range(dates[0] + pd.Timedelta(days=1), periods=len(dates), freq="D")
-        return [DailyForecast(SKU, date, fitted.total / 100.0) for date in actual_dates]
+        return [make_daily_forecast(SKU, date, fitted.total / 100.0) for date in actual_dates]
 
 
 def factories(adapter: FakeAdapter) -> dict[str, object]:
@@ -127,6 +127,7 @@ class ProductionTests(unittest.TestCase):
             self.assertEqual(len(forecasts), 50)
             self.assertEqual(forecasts[0]["date"], "2026-08-22")
             self.assertEqual(forecasts[-1]["date"], "2026-10-10")
+            self.assertEqual({row["model_version"] for row in forecasts}, {"fixture"})
             self.assertEqual(artifact["production_fit"]["trained_through"], "2026-08-21")
             self.assertEqual(artifact["selection_evidence"]["selection_time_model_metadata"], {"alpha": 0.1})
 

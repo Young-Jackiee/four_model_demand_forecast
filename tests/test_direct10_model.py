@@ -169,15 +169,15 @@ class Direct10ModelTests(unittest.TestCase):
         split = BacktestSplit("2025-01-01", "2026-04-01", "2026-04-02", "2026-04-03", expected_test_days=2)
         result = Backtester(split).backtest_one_sku(daily, Direct10BacktestAdapter(FixedDirect10Model()))
         self.assertEqual(result.status, "completed")
-        self.assertAlmostEqual(result.forecasts[0].prediction, 1.0)
-        self.assertAlmostEqual(result.forecasts[1].prediction, 8.0 / 7.0)
+        self.assertAlmostEqual(result.forecasts[0]["prediction"], 1.0)
+        self.assertAlmostEqual(result.forecasts[1]["prediction"], 8.0 / 7.0)
 
         yoy_model = FixedDirect10Model((0.0,) * 5 + (1.0,) + (0.0,) * 4)
         yoy_fitted = yoy_model.fit(pd.DataFrame({"target_quantity": [0.0], **{name: [0.0] for name in DIRECT10_FEATURES}}), "2026-04-01")
         adapter = Direct10BacktestAdapter(yoy_model)
         forecasts = adapter.forecast(yoy_fitted, daily.iloc[:456], pd.date_range("2026-04-02", periods=2, freq="D"))
-        self.assertAlmostEqual(forecasts[0].prediction, 9.0)
-        self.assertAlmostEqual(forecasts[1].prediction, 9.0)
+        self.assertAlmostEqual(forecasts[0]["prediction"], 9.0)
+        self.assertAlmostEqual(forecasts[1]["prediction"], 9.0)
 
     def test_formal_target_mutation_cannot_change_forecast_but_yoy_history_can(self) -> None:
         """测试标签不是特征源；而真正的去年窗口改动必须能影响 Direct10 预测。"""
@@ -198,7 +198,7 @@ class Direct10ModelTests(unittest.TestCase):
         yoy_adapter = Direct10BacktestAdapter(FixedDirect10Model(yoy_only))
         first_yoy = Backtester(split).backtest_one_sku(daily, yoy_adapter)
         third = Backtester(split).backtest_one_sku(changed_yoy, Direct10BacktestAdapter(FixedDirect10Model(yoy_only)))
-        self.assertNotEqual(first_yoy.forecasts[0].prediction, third.forecasts[0].prediction)
+        self.assertNotEqual(first_yoy.forecasts[0]["prediction"], third.forecasts[0]["prediction"])
 
     def test_unobserved_history_is_never_imputed_and_no_residual_stage_exists(self) -> None:
         """不可观测日使训练行失效；模型输出仅来自一次十权重点积。"""
@@ -208,7 +208,7 @@ class Direct10ModelTests(unittest.TestCase):
         split = BacktestSplit("2025-01-01", "2026-03-31", "2026-04-01", "2026-04-01", expected_test_days=1)
         result = Backtester(split).backtest_one_sku(daily, Direct10BacktestAdapter())
         self.assertEqual(result.status, "unavailable")
-        self.assertEqual(result.unavailable_reason, "no_available_direct10_training_features")
+        self.assertEqual(result.unavailable_reason, "insufficient_direct10_history")
         self.assertFalse(hasattr(self.model, "residual_model"))
 
 

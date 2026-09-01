@@ -30,6 +30,12 @@ from demand_forecast.production import (
     ProductionTrainer,
     write_production_run_results,
 )
+from demand_forecast.monitoring import MonitoringConfig, monitor_active_deployments, write_monitoring_results
+from demand_forecast.reference_acceptance import (
+    ReferenceAcceptanceConfig,
+    ReferenceAcceptanceRunner,
+    write_reference_acceptance_report,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -39,6 +45,10 @@ DAILY_SALES_FILE = PROJECT_ROOT / "data" / "synthetic" / "derived" / "daily_sale
 SELECTION_RESULTS_FILE = PROJECT_ROOT / "data" / "synthetic" / "derived" / "selection_results.json"
 PRODUCTION_DIR = PROJECT_ROOT / "data" / "synthetic" / "production"
 PRODUCTION_RESULTS_FILE = PROJECT_ROOT / "data" / "synthetic" / "derived" / "production_run_results.json"
+MONITORING_CONFIG_FILE = PROJECT_ROOT / "configs" / "monitoring.json"
+MONITORING_RESULTS_FILE = PROJECT_ROOT / "data" / "synthetic" / "derived" / "monitoring_results.json"
+REFERENCE_CONFIG_FILE = PROJECT_ROOT / "configs" / "reference_backtest.json"
+REFERENCE_REPORT_FILE = PROJECT_ROOT / "data" / "reference" / "derived" / "acceptance_report.json"
 
 
 def main() -> None:
@@ -114,6 +124,19 @@ def main() -> None:
         )
     write_production_run_results(production_results, PRODUCTION_RESULTS_FILE)
 
+    # 第六步：当前模拟数据没有未来实际销量，因此会输出空监控结果，不伪造误差。
+    monitoring_results = monitor_active_deployments(
+        daily_sales,
+        PRODUCTION_DIR,
+        config.actual_end,
+        MonitoringConfig.from_json(MONITORING_CONFIG_FILE),
+    )
+    write_monitoring_results(monitoring_results, MONITORING_RESULTS_FILE)
+
+    # 第七步：原文9 SKU数据未放入项目时，验收报告必须保持 pending 状态。
+    reference_report = ReferenceAcceptanceRunner().run(ReferenceAcceptanceConfig.from_json(REFERENCE_CONFIG_FILE))
+    write_reference_acceptance_report(reference_report, REFERENCE_REPORT_FILE)
+
     print("数据流水线运行完成。")
     print(f"SKU 数量: {len(sku_master)}")
     print(f"原始订单行数: {len(raw_sales)}")
@@ -123,12 +146,16 @@ def main() -> None:
     print(f"选模结果文件: {SELECTION_RESULTS_FILE}")
     print(f"生产 artifact 目录: {PRODUCTION_DIR}")
     print(f"生产运行结果文件: {PRODUCTION_RESULTS_FILE}")
+    print(f"监控结果文件: {MONITORING_RESULTS_FILE}")
+    print(f"原文9 SKU验收报告: {REFERENCE_REPORT_FILE}")
     print("训练期特征检查:")
     for feature_set, (available, unavailable) in feature_summary.items():
         print(f"  {feature_set}: 可用 {available} 行，不可用 {unavailable} 行")
     _print_backtest_summary(metrics_frame)
     _print_selection_summary(selections)
     _print_production_summary(production_results)
+    print(f"Monitoring: 已产生 {len(monitoring_results)} 条成熟预测评估。")
+    print(f"Reference acceptance: {reference_report.status}")
 
 
 def _print_backtest_summary(metrics_frame) -> None:

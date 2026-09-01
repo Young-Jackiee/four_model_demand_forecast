@@ -7,7 +7,7 @@ from typing import Protocol
 
 import pandas as pd
 
-from demand_forecast.backtesting.contracts import DailyForecast, ModelUnavailableError
+from demand_forecast.backtesting.contracts import DailyForecast, ModelUnavailableError, make_daily_forecast
 from demand_forecast.features.builder import FeatureBuilder
 from demand_forecast.models.direct10 import (
     Direct10FittedModel,
@@ -78,7 +78,7 @@ class FivePeriodBacktestAdapter:
             if not feature_result.is_available:
                 raise ModelUnavailableError(f"five_period_recursive_feature_unavailable:{feature_result.unavailable_reason}")
             prediction = self.model.predict_one(fitted, feature_result.values or {})
-            forecasts.append(DailyForecast(sku=sku, date=date, prediction=prediction))
+            forecasts.append(make_daily_forecast(sku, date, prediction))
             # 这是模型预测历史而不是测试期真实数据；FivePeriod 不使用 occurrence，但保留完整历史契约。
             history.loc[len(history)] = {
                 "date": date,
@@ -114,15 +114,20 @@ class Direct10BacktestAdapter:
 
     def fit(self, train_series: pd.DataFrame, train_end: pd.Timestamp) -> Direct10FittedModel:
         """FeatureBuilder 是唯一的 455 日 / is_observed 训练行判定来源。"""
+        history_start = max(
+            pd.Timestamp(train_series["date"].min()).normalize(),
+            pd.Timestamp(train_series["launch_date"].iloc[0]).normalize(),
+        )
+        if (train_end.normalize() - history_start).days < 455:
+            # 新品尚未积累一个完整的 t-455 至 t-1 年度同期历史，应优先给出业务可读原因。
+            raise ModelUnavailableError("insufficient_direct10_history")
         result = self.feature_builder.build_historical(
             train_series,
             feature_set="direct10",
             end_date=train_end,
         )
         if result.features.empty:
-            if not result.unavailable.empty and result.unavailable["reason"].str.contains("insufficient_history").all():
-                raise ModelUnavailableError("insufficient_direct10_history")
-            raise ModelUnavailableError("no_available_direct10_training_features")
+            raise ModelUnavailableError(self._unavailable_reason(result.unavailable))
         try:
             return self.model.fit(result.features, trained_through=train_end.strftime("%Y-%m-%d"))
         except Direct10TrainingUnavailableError as error:
@@ -154,7 +159,7 @@ class Direct10BacktestAdapter:
                     f"direct10_recursive_feature_unavailable:{feature_result.unavailable_reason}"
                 )
             prediction = self.model.predict_one(fitted, feature_result.values or {})
-            forecasts.append(DailyForecast(sku=str(sku_values[0]), date=date, prediction=prediction))
+            forecasts.append(make_daily_forecast(str(sku_values[0]), date, prediction))
             # occurrence 对 Direct10 不参与计算；仍写入合法值以满足共享 history 数据契约。
             history.loc[len(history)] = {"date": date, "quantity": prediction, "occurrence": float(prediction > 0.0)}
         return forecasts
@@ -164,6 +169,20 @@ class Direct10BacktestAdapter:
         if not isinstance(fitted, Direct10FittedModel):
             raise ValueError("Direct10 adapter 收到错误的 fitted model")
         return self.model.serialize(fitted)
+
+    @staticmethod
+    def _unavailable_reason(unavailable: pd.DataFrame) -> str:
+        """将新品、不可观测窗口和一般特征缺失区分为稳定原因码。"""
+        if unavailable.empty or "reason" not in unavailable.columns:
+            return "no_available_direct10_training_features"
+        reasons = unavailable["reason"].astype(str)
+        if reasons.str.contains("insufficient_history", regex=False).all():
+            return "insufficient_direct10_history"
+        if reasons.str.contains("yoy_window", regex=False).any():
+            return "direct10_yoy_window_unobserved"
+        if reasons.str.contains("current_window", regex=False).any():
+            return "direct10_current_window_unobserved"
+        return "no_available_direct10_training_features"
 
 
 def _to_quantity_forecast_history(train_series: pd.DataFrame) -> pd.DataFrame:
@@ -220,11 +239,11 @@ class TSBBacktestAdapter:
         dates = _validate_forecast_dates(fitted.trained_through, forecast_dates, "TSB")
         predictions = self.model.forecast_many(fitted, len(dates))
         return [
-            DailyForecast(
-                sku=fitted.sku,
-                date=date,
-                prediction=prediction,
-                components={
+            make_daily_forecast(
+                fitted.sku,
+                date,
+                prediction,
+                {
                     "occurrence_probability": fitted.state.occurrence_probability,
                     "demand_size": fitted.state.demand_size,
                 },
@@ -268,11 +287,11 @@ class HurdleBacktestAdapter:
         except HurdleTrainingUnavailableError as error:
             raise ModelUnavailableError(error.reason) from error
         return [
-            DailyForecast(
-                sku=fitted.sku,
-                date=step.date,
-                prediction=step.result.prediction,
-                components={
+            make_daily_forecast(
+                fitted.sku,
+                step.date,
+                step.result.prediction,
+                {
                     "p": step.result.occurrence_probability,
                     "q": step.result.conditional_quantity,
                 },

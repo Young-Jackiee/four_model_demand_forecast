@@ -7,7 +7,12 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 
-from demand_forecast.backtesting.contracts import BacktestMetrics, DailyForecast, ModelUnavailableError
+from demand_forecast.backtesting.contracts import (
+    BacktestMetrics,
+    DailyForecast,
+    ModelUnavailableError,
+    validate_daily_forecast,
+)
 from demand_forecast.data.schemas import validate_daily_sales
 
 
@@ -20,9 +25,8 @@ def evaluate_forecasts(
     """在完整预测完成后，按日期键对齐可观测实际值并计算统一指标。"""
     actuals = validate_daily_sales(test_actuals)
     _validate_actuals(actuals, expected_sku, expected_dates)
-    _validate_forecasts(forecasts, expected_sku, expected_dates)
-
-    prediction_by_date = {forecast.date: forecast.prediction for forecast in forecasts}
+    normalized_forecasts = _validate_forecasts(forecasts, expected_sku, expected_dates)
+    prediction_by_date = {pd.Timestamp(forecast["date"]): forecast["prediction"] for forecast in normalized_forecasts}
     observed = actuals.loc[actuals["is_observed"].astype(bool), ["date", "quantity"]]
     if observed.empty:
         raise ModelUnavailableError("no_observed_test_targets")
@@ -60,16 +64,16 @@ def _validate_actuals(actuals: pd.DataFrame, expected_sku: str, expected_dates: 
 
 def _validate_forecasts(
     forecasts: Sequence[DailyForecast], expected_sku: str, expected_dates: pd.DatetimeIndex
-) -> None:
+) -> list[DailyForecast]:
     """预测必须覆盖每个测试自然日一次，且不可依赖输入顺序碰巧正确。"""
     if len(forecasts) != len(expected_dates):
         raise ValueError("预测数量必须等于测试 horizon")
-    if any(not isinstance(forecast, DailyForecast) for forecast in forecasts):
-        raise ValueError("预测结果必须全部是 DailyForecast")
-    if any(forecast.sku != expected_sku for forecast in forecasts):
+    normalized = [validate_daily_forecast(forecast) for forecast in forecasts]
+    if any(forecast["sku"] != expected_sku for forecast in normalized):
         raise ValueError("预测结果包含错误 SKU")
-    dates = [forecast.date for forecast in forecasts]
+    dates = [pd.Timestamp(forecast["date"]) for forecast in normalized]
     if len(set(dates)) != len(dates):
         raise ValueError("预测日期不能重复")
     if list(dates) != list(expected_dates):
         raise ValueError("预测日期必须按完整测试日历连续且一一对应")
+    return normalized

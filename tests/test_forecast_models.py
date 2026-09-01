@@ -7,7 +7,12 @@ import unittest
 
 import pandas as pd
 
-from demand_forecast.forecast_models import FivePeriodForecastModel, TSBForecastModel
+from demand_forecast.forecast_models import (
+    Direct10ForecastModel,
+    FivePeriodForecastModel,
+    HurdleForecastModel,
+    TSBForecastModel,
+)
 from demand_forecast.forecast_service import ForecastService
 from demand_forecast.production import ProductionCandidate, ProductionPublisher
 
@@ -43,7 +48,10 @@ class ForecastModelTests(unittest.TestCase):
         self.assertEqual(model.serialize(first), model.serialize(second))
         self.assertEqual(model.predict(first, 3), model.predict(second, 3))
         self.assertEqual(model.predict(model.deserialize(model.serialize(first)), 3), model.predict(first, 3))
-        self.assertEqual([item.date for item in model.predict(first, 3)], list(pd.date_range("2025-05-01", periods=3, freq="D")))
+        self.assertEqual(
+            [item["date"] for item in model.predict(first, 3)],
+            [item.date() for item in pd.date_range("2025-05-01", periods=3, freq="D")],
+        )
 
     def test_tsb_round_trip_and_forecast_service(self) -> None:
         """保存、发布、重新加载后，服务预测必须与训练期模型完全一致。"""
@@ -70,6 +78,19 @@ class ForecastModelTests(unittest.TestCase):
             )
             ProductionPublisher(directory).publish(candidate)
             self.assertEqual(ForecastService(directory).predict_active("A", 3), list(expected))
+
+    def test_direct10_and_hurdle_public_artifacts_restore_exact_forecasts(self) -> None:
+        """四模型公共层都必须能保存、加载，再得到相同的递归日预测。"""
+        cases = (
+            (Direct10ForecastModel(), make_daily("A", 500), pd.Timestamp("2026-05-15")),
+            (HurdleForecastModel(), make_daily("B", 200), pd.Timestamp("2025-07-19")),
+        )
+        for model, daily, cutoff in cases:
+            fitted = model.fit(daily, cutoff)
+            expected = model.predict(fitted, 3)
+            restored = model.deserialize(model.serialize(fitted))
+            self.assertEqual(model.predict(restored, 3), expected)
+            self.assertTrue(all(isinstance(item, dict) for item in expected))
 
 
 if __name__ == "__main__":

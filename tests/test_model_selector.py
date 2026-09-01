@@ -5,7 +5,7 @@ import unittest
 
 import pandas as pd
 
-from demand_forecast.backtesting.contracts import BacktestMetrics, BacktestResult, BacktestSplit, DailyForecast
+from demand_forecast.backtesting.contracts import BacktestMetrics, BacktestResult, BacktestSplit, make_daily_forecast
 from demand_forecast.model_selection import (
     BASELINE_MODEL,
     ModelSelector,
@@ -34,7 +34,7 @@ def completed(
     prediction_total: float = 10.0,
 ) -> BacktestResult:
     """构造已经由统一 evaluator 得到的 completed 回测结果。"""
-    forecasts = tuple(DailyForecast(sku, date, 1.0) for date in split.test_dates)
+    forecasts = tuple(make_daily_forecast(sku, date, 1.0) for date in split.test_dates)
     metrics = BacktestMetrics(
         mae=mae,
         mse=mse,

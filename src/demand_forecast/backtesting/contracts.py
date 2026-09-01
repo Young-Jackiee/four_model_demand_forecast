@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from datetime import date
+from typing import Mapping, NotRequired, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -62,34 +63,65 @@ class BacktestSplit:
         return pd.date_range(self.test_start, self.test_end, freq="D")
 
 
-@dataclass(frozen=True)
-class DailyForecast:
-    """模型对某 SKU 某个自然日的预测及可选诊断分量。"""
+class DailyForecast(TypedDict):
+    """文档规定的公共日预测接口；date 使用 Python 自然日而非 pandas 类型。"""
 
     sku: str
-    date: pd.Timestamp | str
+    date: date
     prediction: float
-    components: Mapping[str, float] | None = None
+    components: NotRequired[dict[str, float]]
 
-    def __post_init__(self) -> None:
-        """预测记录在产生时即检查，避免非法数值进入指标层。"""
-        sku = str(self.sku).strip()
-        date = pd.Timestamp(self.date).normalize()
-        prediction = float(self.prediction)
-        if not sku:
-            raise ValueError("DailyForecast 的 sku 不能为空")
-        if pd.isna(date):
-            raise ValueError("DailyForecast 的 date 必须可解析")
-        if not np.isfinite(prediction) or prediction < 0.0:
-            raise ValueError("DailyForecast 的 prediction 必须是有限非负数")
-        if self.components is not None:
-            for name, value in self.components.items():
-                if not str(name).strip() or not np.isfinite(float(value)):
-                    raise ValueError("DailyForecast 的 components 必须是名称和有限数值")
-            object.__setattr__(self, "components", dict(self.components))
-        object.__setattr__(self, "sku", sku)
-        object.__setattr__(self, "date", date)
-        object.__setattr__(self, "prediction", prediction)
+
+def make_daily_forecast(
+    sku: str,
+    forecast_date: date | pd.Timestamp | str,
+    prediction: float,
+    components: Mapping[str, float] | None = None,
+) -> DailyForecast:
+    """创建并校验公共预测字典，阻止非法值跨越模型边界。"""
+    normalized_sku = str(sku).strip()
+    normalized_date = pd.Timestamp(forecast_date).normalize()
+    normalized_prediction = float(prediction)
+    if not normalized_sku:
+        raise ValueError("DailyForecast 的 sku 不能为空")
+    if pd.isna(normalized_date):
+        raise ValueError("DailyForecast 的 date 必须可解析")
+    if not np.isfinite(normalized_prediction) or normalized_prediction < 0.0:
+        raise ValueError("DailyForecast 的 prediction 必须是有限非负数")
+    result: DailyForecast = {
+        "sku": normalized_sku,
+        "date": normalized_date.date(),
+        "prediction": normalized_prediction,
+    }
+    if components is not None:
+        normalized_components: dict[str, float] = {}
+        for name, value in components.items():
+            normalized_name = str(name).strip()
+            normalized_value = float(value)
+            if not normalized_name or not np.isfinite(normalized_value):
+                raise ValueError("DailyForecast 的 components 必须是名称和有限数值")
+            normalized_components[normalized_name] = normalized_value
+        result["components"] = normalized_components
+    return result
+
+
+def validate_daily_forecast(value: object) -> DailyForecast:
+    """验证外部传入的预测记录，并返回字段类型已标准化的副本。"""
+    if not isinstance(value, Mapping):
+        raise ValueError("预测结果必须全部是 DailyForecast 字典")
+    required = {"sku", "date", "prediction"}
+    missing = required - set(value)
+    if missing:
+        raise ValueError(f"DailyForecast 缺少字段: {sorted(missing)}")
+    raw_components = value.get("components")
+    if raw_components is not None and not isinstance(raw_components, Mapping):
+        raise ValueError("DailyForecast 的 components 必须是字典或省略")
+    return make_daily_forecast(
+        str(value["sku"]),
+        value["date"],
+        float(value["prediction"]),
+        raw_components,
+    )
 
 
 @dataclass(frozen=True)

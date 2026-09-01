@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from demand_forecast.backtesting.adapters import BacktestModelAdapter
-from demand_forecast.backtesting.contracts import DailyForecast, ModelUnavailableError
+from demand_forecast.backtesting.contracts import DailyForecast, ModelUnavailableError, validate_daily_forecast
 from demand_forecast.data.schemas import DataContractError, validate_daily_sales
 from demand_forecast.forecast_models import default_forecast_model_factories
 from demand_forecast.model_contracts import ForecastModel
@@ -161,6 +161,7 @@ class ProductionTrainer:
 
         try:
             model_artifact = dict(model.serialize(fitted))
+            self._validate_model_artifact(model_artifact, selection.winner_model, cutoff)
             # 先验证 JSON 可保存，避免“模型训练成功但 artifact 不可交付”。
             json.dumps(model_artifact, ensure_ascii=False, allow_nan=False)
         except Exception as error:
@@ -258,15 +259,29 @@ class ProductionTrainer:
             raise ProductionInputError("forecast_count_mismatch")
         actual_dates: list[pd.Timestamp] = []
         for forecast in forecasts:
-            if not isinstance(forecast, DailyForecast):
-                raise ProductionInputError("forecast_item_not_daily_forecast")
-            if forecast.sku != expected_sku:
+            try:
+                normalized = validate_daily_forecast(forecast)
+            except ValueError as error:
+                raise ProductionInputError("forecast_item_not_daily_forecast") from error
+            if normalized["sku"] != expected_sku:
                 raise ProductionInputError("forecast_sku_mismatch")
-            if not np.isfinite(forecast.prediction) or forecast.prediction < 0.0:
-                raise ProductionInputError("forecast_prediction_invalid")
-            actual_dates.append(forecast.date)
+            actual_dates.append(pd.Timestamp(normalized["date"]))
         if len(set(actual_dates)) != len(actual_dates) or actual_dates != list(expected_dates):
             raise ProductionInputError("forecast_dates_must_be_contiguous_and_exact")
+
+    @staticmethod
+    def _validate_model_artifact(
+        model_artifact: Mapping[str, object],
+        expected_model_name: str,
+        cutoff: pd.Timestamp,
+    ) -> None:
+        """发布前阻止缺少模型版本或 cutoff 不一致的 artifact。"""
+        if model_artifact.get("model_name") != expected_model_name:
+            raise ProductionInputError("model_artifact_name_mismatch")
+        if not str(model_artifact.get("model_version", "")).strip():
+            raise ProductionInputError("model_artifact_missing_model_version")
+        if str(model_artifact.get("trained_through")) != cutoff.strftime("%Y-%m-%d"):
+            raise ProductionInputError("model_artifact_trained_through_mismatch")
 
     @staticmethod
     def _selection_evidence(
@@ -448,14 +463,14 @@ class ProductionPublisher:
             rows.append(
                 {
                     "artifact_id": candidate.artifact_id,
-                    "sku": forecast.sku,
-                    "date": forecast.date.strftime("%Y-%m-%d"),
-                    "prediction": forecast.prediction,
+                    "sku": forecast["sku"],
+                    "date": forecast["date"].isoformat(),
+                    "prediction": forecast["prediction"],
                     "model_name": candidate.selected_model,
-                    "model_version": candidate.model_artifact.get("implementation_version"),
+                    "model_version": candidate.model_artifact["model_version"],
                     "trained_through": candidate.production_train_end.strftime("%Y-%m-%d"),
                     "generated_at": candidate.generated_at.isoformat(),
-                    "components": dict(forecast.components) if forecast.components is not None else None,
+                    "components": dict(forecast["components"]) if "components" in forecast else None,
                 }
             )
         return rows
@@ -471,8 +486,8 @@ class ProductionPublisher:
             "trained_through": candidate.production_train_end.strftime("%Y-%m-%d"),
             "generated_at": candidate.generated_at.isoformat(),
             "forecast_days": len(candidate.forecasts),
-            "forecast_start": candidate.forecasts[0].date.strftime("%Y-%m-%d"),
-            "forecast_end": candidate.forecasts[-1].date.strftime("%Y-%m-%d"),
+            "forecast_start": candidate.forecasts[0]["date"].isoformat(),
+            "forecast_end": candidate.forecasts[-1]["date"].isoformat(),
         }
 
 

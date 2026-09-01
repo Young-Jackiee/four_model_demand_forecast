@@ -7,7 +7,7 @@ import pandas as pd
 
 from demand_forecast.backtesting.adapters import FivePeriodBacktestAdapter, TSBBacktestAdapter
 from demand_forecast.backtesting.backtester import Backtester
-from demand_forecast.backtesting.contracts import BacktestSplit, DailyForecast, ModelUnavailableError
+from demand_forecast.backtesting.contracts import BacktestSplit, DailyForecast, ModelUnavailableError, make_daily_forecast
 from demand_forecast.backtesting.metrics import evaluate_forecasts
 from demand_forecast.models.five_period import FivePeriodConfig, FivePeriodFittedModel
 from demand_forecast.models.tsb import TSBConfig, TSBModel
@@ -56,7 +56,7 @@ class StaticAdapter:
         if train_series["date"].max() > self.fit_dates[-1]:
             raise AssertionError("测试期数据被传入预测模型")
         sku = str(train_series["sku"].iloc[0])
-        return [DailyForecast(sku, date, self.prediction) for date in forecast_dates]
+        return [make_daily_forecast(sku, date, self.prediction) for date in forecast_dates]
 
     def serialize(self, fitted: object) -> dict[str, object]:
         return {"model_name": self.name, "prediction": self.prediction}
@@ -108,7 +108,7 @@ class BacktesterTests(unittest.TestCase):
         adapter = StaticAdapter()
         result = Backtester(self.split).backtest_one_sku(make_daily("A", [1, 2, 3, 4, 5, 6]), adapter)
         self.assertEqual(adapter.fit_dates[-1], pd.Timestamp("2025-01-04"))
-        self.assertEqual([forecast.date for forecast in result.forecasts], list(self.split.test_dates))
+        self.assertEqual([forecast["date"] for forecast in result.forecasts], [date.date() for date in self.split.test_dates])
         self.assertEqual(self.split.horizon, 2)
 
     def test_invalid_split_rejects_overlap_gap_and_wrong_expected_horizon(self) -> None:
@@ -143,7 +143,7 @@ class BacktesterTests(unittest.TestCase):
         """指标按规范公式计算，累计偏差固定为预测合计减实际合计。"""
         actuals = make_daily("A", [2.0, 4.0], start="2025-01-05")
         dates = pd.date_range("2025-01-05", periods=2, freq="D")
-        metrics = evaluate_forecasts(actuals, [DailyForecast("A", dates[0], 1.0), DailyForecast("A", dates[1], 6.0)], "A", dates)
+        metrics = evaluate_forecasts(actuals, [make_daily_forecast("A", dates[0], 1.0), make_daily_forecast("A", dates[1], 6.0)], "A", dates)
         self.assertEqual(metrics.mae, 1.5)
         self.assertEqual(metrics.mse, 2.5)
         self.assertAlmostEqual(metrics.rmse, math.sqrt(2.5))
@@ -157,14 +157,14 @@ class BacktesterTests(unittest.TestCase):
         dates = pd.date_range("2025-01-05", periods=2, freq="D")
         zero_metrics = evaluate_forecasts(
             make_daily("A", [0.0, 0.0], start="2025-01-05"),
-            [DailyForecast("A", dates[0], 1.0), DailyForecast("A", dates[1], 0.0)],
+            [make_daily_forecast("A", dates[0], 1.0), make_daily_forecast("A", dates[1], 0.0)],
             "A",
             dates,
         )
         self.assertIsNone(zero_metrics.wape)
         masked_metrics = evaluate_forecasts(
             make_daily("A", [5.0, None], [True, False], start="2025-01-05"),
-            [DailyForecast("A", dates[0], 7.0), DailyForecast("A", dates[1], 100.0)],
+            [make_daily_forecast("A", dates[0], 7.0), make_daily_forecast("A", dates[1], 100.0)],
             "A",
             dates,
         )
@@ -178,7 +178,7 @@ class BacktesterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "重复"):
             evaluate_forecasts(
                 make_daily("A", [1.0, 2.0], start="2025-01-05"),
-                [DailyForecast("A", dates[0], 1.0), DailyForecast("A", dates[0], 2.0)],
+                [make_daily_forecast("A", dates[0], 1.0), make_daily_forecast("A", dates[0], 2.0)],
                 "A",
                 dates,
             )
@@ -211,8 +211,8 @@ class BacktesterTests(unittest.TestCase):
         daily = make_daily("A", [float(value) for value in range(1, 94)])
         adapter = FivePeriodBacktestAdapter(model=FixedFivePeriodModel())
         result = Backtester(split).backtest_one_sku(daily, adapter)
-        self.assertAlmostEqual(result.forecasts[0].prediction, 88.0)
-        self.assertAlmostEqual(result.forecasts[1].prediction, 619.0 / 7.0)
+        self.assertAlmostEqual(result.forecasts[0]["prediction"], 88.0)
+        self.assertAlmostEqual(result.forecasts[1]["prediction"], 619.0 / 7.0)
 
     def test_tsb_adapter_keeps_constant_horizon(self) -> None:
         """TSB 正式测试期没有实际更新，所有预测必须保持 p×z 常数。"""
@@ -224,7 +224,7 @@ class BacktesterTests(unittest.TestCase):
         result = Backtester(split).backtest_one_sku(original, adapter)
         changed_result = Backtester(split).backtest_one_sku(changed, adapter)
         self.assertEqual(result.status, "completed")
-        self.assertEqual(result.forecasts[0].prediction, result.forecasts[1].prediction)
+        self.assertEqual(result.forecasts[0]["prediction"], result.forecasts[1]["prediction"])
         self.assertEqual(result.forecasts, changed_result.forecasts)
         self.assertNotEqual(result.metrics.mae, changed_result.metrics.mae)
 

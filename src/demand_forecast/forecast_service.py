@@ -39,6 +39,8 @@ class ForecastService:
         model_name = str(model_payload.get("model_name", ""))
         if active["model_name"] != model_name:
             raise ForecastServiceError("active_model_name_and_artifact_model_name_mismatch")
+        if active["trained_through"] != str(model_payload.get("trained_through", "")):
+            raise ForecastServiceError("active_trained_through_and_artifact_mismatch")
         factory = self.model_factories.get(model_name)
         if factory is None:
             raise ForecastServiceError(f"unsupported_model_name: {model_name}")
@@ -60,13 +62,14 @@ class ForecastService:
             payload = json.loads(path.read_text(encoding="utf-8"))
             artifact_id = str(payload["artifact_id"])
             model_name = str(payload["model_name"])
+            trained_through = str(payload["trained_through"])
         except FileNotFoundError as error:
             raise ForecastServiceError("active_deployment_not_found") from error
         except Exception as error:
             raise ForecastServiceError(f"active_pointer_invalid: {type(error).__name__}: {error}") from error
-        if not artifact_id or not model_name:
+        if not artifact_id or not model_name or not trained_through:
             raise ForecastServiceError("active_pointer_missing_required_fields")
-        return {"artifact_id": artifact_id, "model_name": model_name}
+        return {"artifact_id": artifact_id, "model_name": model_name, "trained_through": trained_through}
 
     def _sku_dir(self, sku: str) -> Path:
         """与 Publisher 相同地拒绝会逃逸输出目录的 SKU。"""

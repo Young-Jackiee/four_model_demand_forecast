@@ -139,8 +139,8 @@ class HurdleModelTests(unittest.TestCase):
         self.assertEqual(first.fitted_metadata, second.fitted_metadata)
         self.assertNotEqual(first.metrics.mae, second.metrics.mae)
         self.assertEqual(len(first.forecasts), 5)
-        self.assertIn("p", first.forecasts[0].components or {})
-        self.assertIn("q", first.forecasts[0].components or {})
+        self.assertIn("p", first.forecasts[0].get("components", {}))
+        self.assertIn("q", first.forecasts[0].get("components", {}))
 
     def test_lambda_grid_is_jointly_evaluated_as_all_pairs(self) -> None:
         """四个 lambda 值必须形成 4×4 组合，而不是分别挑选两个单模型最优值。"""

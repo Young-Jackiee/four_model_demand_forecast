@@ -13,6 +13,7 @@ from demand_forecast.backtesting import (
     FormalBacktestRunner,
     HurdleBacktestAdapter,
     TSBBacktestAdapter,
+    make_daily_forecast,
     results_to_metrics_frame,
 )
 from demand_forecast.backtesting.metrics import evaluate_forecasts
@@ -73,7 +74,7 @@ class MeanAdapter:
     def forecast(self, fitted: object, train_series: pd.DataFrame, forecast_dates: pd.DatetimeIndex) -> list[DailyForecast]:
         sku = str(train_series["sku"].iloc[0])
         prediction = float(fitted["prediction"])
-        return [DailyForecast(sku, date, prediction) for date in forecast_dates]
+        return [make_daily_forecast(sku, date, prediction) for date in forecast_dates]
 
     def serialize(self, fitted: object) -> dict[str, object]:
         return {"model_name": self.name, **fitted}
@@ -157,7 +158,7 @@ class FormalBacktestIntegrationTests(unittest.TestCase):
                 "observation_reason": pd.NA,
             }
         )
-        forecasts = [DailyForecast("A", dates[1], 1.0), DailyForecast("A", dates[0], 1.0)]
+        forecasts = [make_daily_forecast("A", dates[1], 1.0), make_daily_forecast("A", dates[0], 1.0)]
         with self.assertRaisesRegex(ValueError, "连续"):
             evaluate_forecasts(actuals, forecasts, "A", dates)
 

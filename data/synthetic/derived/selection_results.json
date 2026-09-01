@@ -526,7 +526,7 @@
           "absolute_bias": null,
           "eligible": false,
           "decision": "not_applicable",
-          "reason": "no_available_direct10_training_features"
+          "reason": "insufficient_direct10_history"
         },
         {
           "model_name": "tsb",
@@ -636,7 +636,7 @@
           "absolute_bias": null,
           "eligible": false,
           "decision": "not_applicable",
-          "reason": "no_available_direct10_training_features"
+          "reason": "insufficient_direct10_history"
         },
         {
           "model_name": "tsb",
@@ -855,7 +855,7 @@
           "absolute_bias": null,
           "eligible": false,
           "decision": "not_applicable",
-          "reason": "no_available_direct10_training_features"
+          "reason": "direct10_yoy_window_unobserved"
         },
         {
           "model_name": "tsb",

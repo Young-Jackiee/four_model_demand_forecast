@@ -16,6 +16,8 @@ from demand_forecast.backtesting.contracts import (
     BacktestSplit,
     DailyForecast,
     ModelUnavailableError,
+    make_daily_forecast,
+    validate_daily_forecast,
 )
 from demand_forecast.model_contracts import ForecastModel
 
@@ -31,6 +33,7 @@ __all__ = [
     "FormalBacktestRunner",
     "HurdleBacktestAdapter",
     "ModelUnavailableError",
+    "make_daily_forecast",
     "ModelSelector",
     "SelectionInputError",
     "SelectionResult",
@@ -38,4 +41,5 @@ __all__ = [
     "results_to_metrics_frame",
     "read_selection_results",
     "write_selection_results",
+    "validate_daily_forecast",
 ]
